@@ -104,6 +104,70 @@ const dataForPageB = async (params: Record<string, string>, test: string): Promi
 
 ```
 
+## Complete Example: Handling Routes
+
+Here's a framework-agnostic example showing how to use the router to handle incoming requests:
+
+```tsx
+import { AppRouter } from "./router";
+
+async function handleRequest(pathname: string, queryParams: Record<string, string | string[]>) {
+  const route = await AppRouter().getRoute(pathname, queryParams);
+  
+  if (!route) {
+    return { status: 404, html: "<h1>404 - Page Not Found</h1>" };
+  }
+
+  const { Component, params, loader, meta } = route;
+  const data = loader ? await loader() : undefined;
+  const metaTags = meta ? meta(data) : [];
+
+  return {
+    status: 200,
+    metaTags,
+    element: <Component params={params} data={data} />,
+  };
+}
+
+handleRequest("/page-a", {});
+handleRequest("/page-b/123", { test: "hello" });
+```
+
+### Extracting Metadata
+
+```tsx
+async function extractMetadata(pathname: string, queryParams: Record<string, string | string[]>) {
+  const route = await AppRouter().getRoute(pathname, queryParams);
+  
+  if (!route || !route.meta) {
+    return { title: "My Site", description: "" };
+  }
+
+  const data = route.loader ? await route.loader() : undefined;
+  const metaTags = route.meta(data);
+
+  const findBy = (predicate: (m: React.JSX.IntrinsicElements["meta"]) => boolean) =>
+    metaTags.find((tag) => tag && predicate(tag));
+
+  const getContent = (m?: React.JSX.IntrinsicElements["meta"]) =>
+    (m && "content" in m ? m.content : undefined) as string | undefined;
+
+  const titleFromName = getContent(findBy((m) => m.name === "title"));
+  const titleFromOg = getContent(findBy((m) => m.property === "og:title"));
+  const descriptionFromName = getContent(findBy((m) => m.name === "description"));
+  const descriptionFromOg = getContent(findBy((m) => m.property === "og:description"));
+
+  return {
+    title: titleFromName ?? titleFromOg ?? "My Site",
+    description: descriptionFromName ?? descriptionFromOg ?? "",
+    openGraph: {
+      title: titleFromOg ?? titleFromName,
+      description: descriptionFromOg ?? descriptionFromName,
+    },
+  };
+}
+```
+
 
 ## Contributing
 
