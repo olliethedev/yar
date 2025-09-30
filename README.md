@@ -1,23 +1,22 @@
-# yar (Yet Another Router)
+# @olliethedev/yar (Yet Another Router)
 
 ## About
 
-`yar` is a simple and pluggable router for modern react frameworks. It is designed to be used as a part of any modern react framework.
+`@olliethedev/yar` is a simple and pluggable router for modern react frameworks. It is designed to be used as a part of any modern react framework.
 
 
-## Why yar?
+## Why another router?
 
-- **Type Safety First**: Unlike many routers, yar provides complete type inference for path parameters and validated query parameters
-- **Validation Built-in**: No need to manually validate query parameters - use your favorite schema library
 - **Composable**: Routes can be exported from npm packages and combined
-- **Simple API**: Just two functions to learn: `createRoute` and `createRouter`
 - **Framework Flexibility**: Not tied to any specific React framework
-
+- **Simple API**: Just two functions to learn: `createRoute` and `createRouter`
+- **Type Safety First**: Unlike many routers, `@olliethedev/yar` provides complete type inference for path parameters and validated query parameters
+- **Validation Built-in**: No need to manually validate query parameters - use your favorite schema library
 
 ## Installation
 
 ```bash
-pnpm add yar
+pnpm add @olliethedev/yar
 ```
 
 ## API Reference
@@ -54,7 +53,7 @@ Creates a router instance from route definitions.
 ## Usage
 
 ```tsx
-import { createRoute, createRouter } from "yar";
+import { createRoute, createRouter } from "@olliethedev/yar";
 import PageA from "@/components/page-a";
 import PageB from "@/components/page-b";
 import { z } from "zod";
