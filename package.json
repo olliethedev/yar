@@ -1,0 +1,61 @@
+{
+  "name": "yar",
+  "version": "1.0.0",
+  "packageManager": "pnpm@10.14.0",
+  "description": "Pluggable router for modern react frameworks",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "scripts": {
+    "lint": "biome check .",
+    "lint:fix": "biome check . --write",
+    "format": "biome format --write",
+    "typecheck": "tsc --noEmit",
+    "bump": "bumpp",
+    "build": "tsup --dts --clean",
+    "dev": "tsup --watch",
+    "test": "vitest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/olliethedev/yar.git"
+  },
+  "keywords": [
+    "react",
+    "router",
+    "nextjs"
+  ],
+  "author": "olliethedev",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/olliethedev/yar/issues"
+  },
+  "homepage": "https://github.com/olliethedev/yar#readme",
+  "dependencies": {
+    "rou3": "^0.7.5"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.2.4",
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.1.9",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  },
+  "peerDependencies": {
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.1.9"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  }
+}

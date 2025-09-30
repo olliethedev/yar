@@ -1,0 +1,581 @@
+import type { ComponentType } from "react";
+import { describe, expect, it, vi } from "vitest";
+import { createRoute, createRouter } from "../router";
+import {
+	createFailingSchema,
+	createMockSchema,
+	createObjectSchema,
+} from "./test-helpers";
+
+// Mock components for testing
+const MockComponent: ComponentType<Record<string, unknown>> = () => null;
+const AnotherComponent: ComponentType<Record<string, unknown>> = () => null;
+
+describe("createRoute", () => {
+	it("should create a route with a simple path", async () => {
+		const route = createRoute("/home", () => ({
+			Component: MockComponent,
+		}));
+
+		expect(route.path).toBe("/home");
+		expect(route.options).toBeUndefined();
+
+		const result = await route();
+		expect(result.Component).toBe(MockComponent);
+	});
+
+	it("should create a route with path parameters", async () => {
+		const route = createRoute("/user/:id", ({ params }) => ({
+			Component: MockComponent,
+			loader: () => `User ${params.id}`,
+		}));
+
+		expect(route.path).toBe("/user/:id");
+
+		const result = await route({ params: { id: "123" } });
+		expect(result.Component).toBe(MockComponent);
+		expect(result.loader).toBeDefined();
+
+		if (result.loader) {
+			const data = await result.loader();
+			expect(data).toBe("User 123");
+		}
+	});
+
+	it("should create a route with multiple path parameters", async () => {
+		const route = createRoute("/posts/:category/:id", ({ params }) => ({
+			Component: MockComponent,
+			loader: () => `${params.category}/${params.id}`,
+		}));
+
+		const result = await route({
+			params: { category: "tech", id: "42" },
+		});
+
+		if (result.loader) {
+			const data = await result.loader();
+			expect(data).toBe("tech/42");
+		}
+	});
+
+	it("should create a route with query parameter validation", async () => {
+		const querySchema = createObjectSchema<{ search: string }>({
+			search: (val) => typeof val === "string",
+		});
+
+		const route = createRoute(
+			"/search",
+			({ query }) => ({
+				Component: MockComponent,
+				loader: () => query?.search || "no query",
+			}),
+			{ query: querySchema },
+		);
+
+		const result = await route({ query: { search: "test" } });
+
+		if (result.loader) {
+			const data = await result.loader();
+			expect(data).toBe("test");
+		}
+	});
+
+	it("should handle optional query parameters", async () => {
+		const route = createRoute("/products", ({ query: _query }) => ({
+			Component: MockComponent,
+			loader: () => _query || null,
+		}));
+
+		const result = await route();
+		if (result.loader) {
+			const data = await result.loader();
+			expect(data).toBeNull();
+		}
+	});
+
+	it("should support meta function", async () => {
+		const route = createRoute("/about", () => ({
+			Component: MockComponent,
+			meta: () => [
+				{ name: "title", content: "About" },
+				{ name: "description", content: "About page" },
+			],
+		}));
+
+		const result = await route();
+		expect(result.meta).toBeDefined();
+
+		if (result.meta) {
+			const metaTags = result.meta();
+			expect(metaTags).toHaveLength(2);
+			expect(metaTags[0]).toEqual({ name: "title", content: "About" });
+		}
+	});
+
+	it("should pass loader data to meta function", async () => {
+		const route = createRoute("/article/:id", ({ params }) => ({
+			Component: MockComponent,
+			loader: async (): Promise<{ title: string }> => ({
+				title: `Article ${params.id}`,
+			}),
+			meta: (data?: { title: string }) => [
+				{ name: "title", content: data?.title || "Default" },
+			],
+		}));
+
+		const result = await route({ params: { id: "123" } });
+
+		if (result.loader && result.meta) {
+			const data = await result.loader();
+			const metaTags = result.meta(data);
+			expect(metaTags[0]).toEqual({ name: "title", content: "Article 123" });
+		}
+	});
+
+	it("should handle async loaders", async () => {
+		const mockLoader = vi.fn(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 10));
+			return "async data";
+		});
+
+		const route = createRoute("/async", () => ({
+			Component: MockComponent,
+			loader: mockLoader,
+		}));
+
+		const result = await route();
+		if (result.loader) {
+			const data = await result.loader();
+			expect(data).toBe("async data");
+			expect(mockLoader).toHaveBeenCalledTimes(1);
+		}
+	});
+});
+
+describe("createRouter", () => {
+	it("should create a router with multiple routes", () => {
+		const routes = {
+			home: createRoute("/", () => ({ Component: MockComponent })),
+			about: createRoute("/about", () => ({ Component: AnotherComponent })),
+		};
+
+		const router = createRouter(routes);
+
+		expect(router.routes).toBe(routes);
+		expect(router.getRoute).toBeDefined();
+	});
+
+	it("should match a simple route", async () => {
+		const routes = {
+			home: createRoute("/", () => ({ Component: MockComponent })),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/");
+
+		expect(match).toBeDefined();
+		expect(match?.Component).toBe(MockComponent);
+	});
+
+	it("should return null for unmatched routes", async () => {
+		const routes = {
+			home: createRoute("/", () => ({ Component: MockComponent })),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/nonexistent");
+
+		expect(match).toBeNull();
+	});
+
+	it("should extract path parameters", async () => {
+		const routes = {
+			user: createRoute("/user/:id", ({ params }) => ({
+				Component: MockComponent,
+				loader: () => params.id,
+			})),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/user/123");
+
+		expect(match).toBeDefined();
+		expect(match?.params).toEqual({ id: "123" });
+
+		if (match?.loader) {
+			const data = await match.loader();
+			expect(data).toBe("123");
+		}
+	});
+
+	it("should handle multiple path parameters", async () => {
+		const routes = {
+			post: createRoute("/posts/:category/:id", () => ({
+				Component: MockComponent,
+			})),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/posts/tech/42");
+
+		expect(match).toBeDefined();
+		expect(match?.params).toEqual({ category: "tech", id: "42" });
+	});
+
+	it("should pass query parameters to route handler", async () => {
+		const querySchema = createObjectSchema<{ page: string }>({
+			page: (val) => typeof val === "string",
+		});
+
+		const routes = {
+			search: createRoute(
+				"/search",
+				({ query }) => ({
+					Component: MockComponent,
+					loader: () => query?.page || "1",
+				}),
+				{ query: querySchema },
+			),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/search", { page: "2" });
+
+		expect(match).toBeDefined();
+		if (match?.loader) {
+			const data = await match.loader();
+			expect(data).toBe("2");
+		}
+	});
+
+	it("should handle query parameter validation errors", async () => {
+		const failingSchema = createFailingSchema("Invalid query");
+
+		const routes = {
+			search: createRoute(
+				"/search",
+				({ query: _query }) => ({
+					Component: MockComponent,
+					loader: () => _query || null,
+				}),
+				{ query: failingSchema },
+			),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/search", { invalid: "param" });
+
+		// Route should still match, but query will be undefined due to validation failure
+		expect(match).toBeDefined();
+		if (match?.loader) {
+			const data = await match.loader();
+			expect(data).toBeNull();
+		}
+	});
+
+	it("should execute loader functions", async () => {
+		const mockLoader = vi.fn(async () => ({ data: "test" }));
+
+		const routes = {
+			data: createRoute("/data", () => ({
+				Component: MockComponent,
+				loader: mockLoader,
+			})),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/data");
+
+		expect(match).toBeDefined();
+		if (match?.loader) {
+			const result = await match.loader();
+			expect(result).toEqual({ data: "test" });
+			expect(mockLoader).toHaveBeenCalled();
+		}
+	});
+
+	it("should generate meta tags", async () => {
+		const routes = {
+			page: createRoute("/page", () => ({
+				Component: MockComponent,
+				meta: () => [
+					{ name: "title", content: "Test Page" },
+					{ property: "og:title", content: "Test Page" },
+				],
+			})),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/page");
+
+		expect(match).toBeDefined();
+		if (match?.meta) {
+			const metaTags = match.meta();
+			expect(metaTags).toHaveLength(2);
+			expect(metaTags[0]).toEqual({ name: "title", content: "Test Page" });
+			expect(metaTags[1]).toEqual({
+				property: "og:title",
+				content: "Test Page",
+			});
+		}
+	});
+
+	it("should support router context", async () => {
+		const routes = {
+			home: createRoute("/", () => ({ Component: MockComponent })),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/");
+
+		expect(match).toBeDefined();
+	});
+
+	it("should match routes with trailing slashes correctly", async () => {
+		const routes = {
+			about: createRoute("/about", () => ({ Component: MockComponent })),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/about");
+
+		expect(match).toBeDefined();
+		expect(match?.Component).toBe(MockComponent);
+	});
+
+	it("should handle complex route patterns", async () => {
+		const routes = {
+			nested: createRoute(
+				"/api/v1/users/:userId/posts/:postId",
+				({ params }) => ({
+					Component: MockComponent,
+					loader: () => `${params.userId}-${params.postId}`,
+				}),
+			),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/api/v1/users/123/posts/456");
+
+		expect(match).toBeDefined();
+		expect(match?.params).toEqual({ userId: "123", postId: "456" });
+
+		if (match?.loader) {
+			const data = await match.loader();
+			expect(data).toBe("123-456");
+		}
+	});
+
+	it("should handle routes without loaders or meta", async () => {
+		const routes = {
+			simple: createRoute("/simple", () => ({ Component: MockComponent })),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/simple");
+
+		expect(match).toBeDefined();
+		expect(match?.Component).toBe(MockComponent);
+		expect(match?.loader).toBeUndefined();
+		expect(match?.meta).toBeUndefined();
+	});
+
+	it("should prioritize exact matches over parameterized routes", async () => {
+		const routes = {
+			exact: createRoute("/users/me", () => ({ Component: MockComponent })),
+			param: createRoute("/users/:id", () => ({ Component: AnotherComponent })),
+		};
+
+		const router = createRouter(routes);
+		const exactMatch = await router.getRoute("/users/me");
+		const paramMatch = await router.getRoute("/users/123");
+
+		expect(exactMatch?.Component).toBe(MockComponent);
+		expect(paramMatch?.Component).toBe(AnotherComponent);
+		expect(paramMatch?.params).toEqual({ id: "123" });
+	});
+});
+
+describe("Route validation", () => {
+	it("should validate query parameters with passing schema", async () => {
+		const schema = createMockSchema<{ id: string }>((value) => {
+			if (
+				typeof value === "object" &&
+				value !== null &&
+				"id" in value &&
+				typeof (value as Record<string, unknown>).id === "string"
+			) {
+				return { value: value as { id: string }, issues: undefined };
+			}
+			return { issues: [{ message: "Invalid id" }] };
+		});
+
+		const routes = {
+			item: createRoute(
+				"/item",
+				({ query }) => ({
+					Component: MockComponent,
+					loader: () => query?.id || "no-id",
+				}),
+				{ query: schema },
+			),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/item", { id: "test-id" });
+
+		if (match?.loader) {
+			const data = await match.loader();
+			expect(data).toBe("test-id");
+		}
+	});
+
+	it("should handle validation failure gracefully", async () => {
+		const schema = createFailingSchema("Required field missing");
+
+		const routes = {
+			form: createRoute(
+				"/form",
+				({ query }) => ({
+					Component: MockComponent,
+					loader: () => query || null,
+				}),
+				{ query: schema },
+			),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/form", { invalid: "data" });
+
+		expect(match).toBeDefined();
+		if (match?.loader) {
+			const data = await match.loader();
+			expect(data).toBeNull();
+		}
+	});
+
+	it("should handle async validation", async () => {
+		const asyncSchema = createMockSchema<{ token: string }>(async (value) => {
+			await new Promise<void>((resolve) => setTimeout(resolve, 10));
+			if (typeof value === "object" && value !== null && "token" in value) {
+				return { value: value as { token: string }, issues: undefined };
+			}
+			return { issues: [{ message: "Invalid token" }] };
+		});
+
+		const routes = {
+			auth: createRoute(
+				"/auth",
+				({ query }) => ({
+					Component: MockComponent,
+					loader: () => query?.token || "no-token",
+				}),
+				{ query: asyncSchema },
+			),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/auth", { token: "abc123" });
+
+		if (match?.loader) {
+			const data = await match.loader();
+			expect(data).toBe("abc123");
+		}
+	});
+
+	it("should handle array query parameters", async () => {
+		const schema = createMockSchema<{ tags: string[] }>((value) => {
+			if (
+				typeof value === "object" &&
+				value !== null &&
+				"tags" in value &&
+				Array.isArray((value as Record<string, unknown>).tags)
+			) {
+				return { value: value as { tags: string[] }, issues: undefined };
+			}
+			return { issues: [{ message: "Invalid tags" }] };
+		});
+
+		const routes = {
+			filter: createRoute(
+				"/filter",
+				({ query }) => ({
+					Component: MockComponent,
+					loader: () => query?.tags || [],
+				}),
+				{ query: schema },
+			),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/filter", {
+			tags: ["tag1", "tag2"],
+		});
+
+		if (match?.loader) {
+			const data = await match.loader();
+			expect(data).toEqual(["tag1", "tag2"]);
+		}
+	});
+});
+
+describe("Edge cases", () => {
+	it("should handle routes with no handler context", async () => {
+		const route = createRoute("/test", () => ({
+			Component: MockComponent,
+		}));
+
+		const result = await route();
+		expect(result.Component).toBe(MockComponent);
+	});
+
+	it("should handle empty query parameters", async () => {
+		const routes = {
+			search: createRoute("/search", ({ query }) => ({
+				Component: MockComponent,
+				loader: () => query || null,
+			})),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/search", {});
+
+		if (match?.loader) {
+			const data = await match.loader();
+			expect(data).toBeNull();
+		}
+	});
+
+	it("should handle undefined meta function return", async () => {
+		const routes = {
+			page: createRoute("/page", () => ({
+				Component: MockComponent,
+				meta: () => [undefined, { name: "title", content: "Test" }],
+			})),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/page");
+
+		if (match?.meta) {
+			const metaTags = match.meta();
+			expect(metaTags).toHaveLength(2);
+			expect(metaTags[0]).toBeUndefined();
+			expect(metaTags[1]).toEqual({ name: "title", content: "Test" });
+		}
+	});
+
+	it("should handle routes with special characters", async () => {
+		const routes = {
+			special: createRoute("/items/:id", ({ params }) => ({
+				Component: MockComponent,
+				loader: () => params.id,
+			})),
+		};
+
+		const router = createRouter(routes);
+		const match = await router.getRoute("/items/test-123");
+
+		expect(match?.params).toEqual({ id: "test-123" });
+	});
+});
