@@ -14,26 +14,26 @@ const AnotherComponent: ComponentType<Record<string, unknown>> = () => null;
 describe("createRoute", () => {
 	it("should create a route with a simple path", () => {
 		const route = createRoute("/home", () => ({
-			Component: MockComponent,
+			PageComponent: MockComponent,
 		}));
 
 		expect(route.path).toBe("/home");
 		expect(route.options).toBeUndefined();
 
 		const result = route();
-		expect(result.Component).toBe(MockComponent);
+		expect(result.PageComponent).toBe(MockComponent);
 	});
 
 	it("should create a route with path parameters", async () => {
 		const route = createRoute("/user/:id", ({ params }) => ({
-			Component: MockComponent,
+			PageComponent: MockComponent,
 			loader: () => `User ${params.id}`,
 		}));
 
 		expect(route.path).toBe("/user/:id");
 
 		const result = route({ params: { id: "123" } });
-		expect(result.Component).toBe(MockComponent);
+		expect(result.PageComponent).toBe(MockComponent);
 		expect(result.loader).toBeDefined();
 
 		if (result.loader) {
@@ -44,7 +44,7 @@ describe("createRoute", () => {
 
 	it("should create a route with multiple path parameters", async () => {
 		const route = createRoute("/posts/:category/:id", ({ params }) => ({
-			Component: MockComponent,
+			PageComponent: MockComponent,
 			loader: () => `${params.category}/${params.id}`,
 		}));
 
@@ -66,7 +66,7 @@ describe("createRoute", () => {
 		const route = createRoute(
 			"/search",
 			({ query }) => ({
-				Component: MockComponent,
+				PageComponent: MockComponent,
 				loader: () => query?.search || "no query",
 			}),
 			{ query: querySchema },
@@ -82,7 +82,7 @@ describe("createRoute", () => {
 
 	it("should handle optional query parameters", async () => {
 		const route = createRoute("/products", ({ query: _query }) => ({
-			Component: MockComponent,
+			PageComponent: MockComponent,
 			loader: () => _query || null,
 		}));
 
@@ -95,7 +95,7 @@ describe("createRoute", () => {
 
 	it("should support meta function", () => {
 		const route = createRoute("/about", () => ({
-			Component: MockComponent,
+			PageComponent: MockComponent,
 			meta: () => [
 				{ name: "title", content: "About" },
 				{ name: "description", content: "About page" },
@@ -114,7 +114,7 @@ describe("createRoute", () => {
 
 	it("should pass loader data to meta function", async () => {
 		const route = createRoute("/article/:id", ({ params }) => ({
-			Component: MockComponent,
+			PageComponent: MockComponent,
 			loader: async (): Promise<{ title: string }> => ({
 				title: `Article ${params.id}`,
 			}),
@@ -139,7 +139,7 @@ describe("createRoute", () => {
 		});
 
 		const route = createRoute("/async", () => ({
-			Component: MockComponent,
+			PageComponent: MockComponent,
 			loader: mockLoader,
 		}));
 
@@ -150,13 +150,29 @@ describe("createRoute", () => {
 			expect(mockLoader).toHaveBeenCalledTimes(1);
 		}
 	});
+
+	it("should support LoadingComponent and ErrorComponent", () => {
+		const LoadingComp: ComponentType<Record<string, unknown>> = () => null;
+		const ErrorComp: ComponentType<Record<string, unknown>> = () => null;
+
+		const route = createRoute("/with-loading", () => ({
+			PageComponent: MockComponent,
+			LoadingComponent: LoadingComp,
+			ErrorComponent: ErrorComp,
+		}));
+
+		const result = route();
+		expect(result.PageComponent).toBe(MockComponent);
+		expect(result.LoadingComponent).toBe(LoadingComp);
+		expect(result.ErrorComponent).toBe(ErrorComp);
+	});
 });
 
 describe("createRouter", () => {
 	it("should create a router with multiple routes", () => {
 		const routes = {
-			home: createRoute("/", () => ({ Component: MockComponent })),
-			about: createRoute("/about", () => ({ Component: AnotherComponent })),
+			home: createRoute("/", () => ({ PageComponent: MockComponent })),
+			about: createRoute("/about", () => ({ PageComponent: AnotherComponent })),
 		};
 
 		const router = createRouter(routes);
@@ -167,19 +183,19 @@ describe("createRouter", () => {
 
 	it("should match a simple route", () => {
 		const routes = {
-			home: createRoute("/", () => ({ Component: MockComponent })),
+			home: createRoute("/", () => ({ PageComponent: MockComponent })),
 		};
 
 		const router = createRouter(routes);
 		const match = router.getRoute("/");
 
 		expect(match).toBeDefined();
-		expect(match?.Component).toBe(MockComponent);
+		expect(match?.PageComponent).toBe(MockComponent);
 	});
 
 	it("should return null for unmatched routes", () => {
 		const routes = {
-			home: createRoute("/", () => ({ Component: MockComponent })),
+			home: createRoute("/", () => ({ PageComponent: MockComponent })),
 		};
 
 		const router = createRouter(routes);
@@ -191,7 +207,7 @@ describe("createRouter", () => {
 	it("should extract path parameters", async () => {
 		const routes = {
 			user: createRoute("/user/:id", ({ params }) => ({
-				Component: MockComponent,
+				PageComponent: MockComponent,
 				loader: () => params.id,
 			})),
 		};
@@ -211,7 +227,7 @@ describe("createRouter", () => {
 	it("should handle multiple path parameters", () => {
 		const routes = {
 			post: createRoute("/posts/:category/:id", () => ({
-				Component: MockComponent,
+				PageComponent: MockComponent,
 			})),
 		};
 
@@ -231,7 +247,7 @@ describe("createRouter", () => {
 			search: createRoute(
 				"/search",
 				({ query }) => ({
-					Component: MockComponent,
+					PageComponent: MockComponent,
 					loader: () => query?.page || "1",
 				}),
 				{ query: querySchema },
@@ -255,7 +271,7 @@ describe("createRouter", () => {
 			search: createRoute(
 				"/search",
 				({ query: _query }) => ({
-					Component: MockComponent,
+					PageComponent: MockComponent,
 					loader: () => _query || null,
 				}),
 				{ query: failingSchema },
@@ -278,7 +294,7 @@ describe("createRouter", () => {
 
 		const routes = {
 			data: createRoute("/data", () => ({
-				Component: MockComponent,
+				PageComponent: MockComponent,
 				loader: mockLoader,
 			})),
 		};
@@ -297,7 +313,7 @@ describe("createRouter", () => {
 	it("should generate meta tags", () => {
 		const routes = {
 			page: createRoute("/page", () => ({
-				Component: MockComponent,
+				PageComponent: MockComponent,
 				meta: () => [
 					{ name: "title", content: "Test Page" },
 					{ property: "og:title", content: "Test Page" },
@@ -322,7 +338,7 @@ describe("createRouter", () => {
 
 	it("should support router context", () => {
 		const routes = {
-			home: createRoute("/", () => ({ Component: MockComponent })),
+			home: createRoute("/", () => ({ PageComponent: MockComponent })),
 		};
 
 		const router = createRouter(routes);
@@ -333,14 +349,14 @@ describe("createRouter", () => {
 
 	it("should match routes with trailing slashes correctly", () => {
 		const routes = {
-			about: createRoute("/about", () => ({ Component: MockComponent })),
+			about: createRoute("/about", () => ({ PageComponent: MockComponent })),
 		};
 
 		const router = createRouter(routes);
 		const match = router.getRoute("/about");
 
 		expect(match).toBeDefined();
-		expect(match?.Component).toBe(MockComponent);
+		expect(match?.PageComponent).toBe(MockComponent);
 	});
 
 	it("should handle complex route patterns", async () => {
@@ -348,7 +364,7 @@ describe("createRouter", () => {
 			nested: createRoute(
 				"/api/v1/users/:userId/posts/:postId",
 				({ params }) => ({
-					Component: MockComponent,
+					PageComponent: MockComponent,
 					loader: () => `${params.userId}-${params.postId}`,
 				}),
 			),
@@ -368,31 +384,56 @@ describe("createRouter", () => {
 
 	it("should handle routes without loaders or meta", () => {
 		const routes = {
-			simple: createRoute("/simple", () => ({ Component: MockComponent })),
+			simple: createRoute("/simple", () => ({ PageComponent: MockComponent })),
 		};
 
 		const router = createRouter(routes);
 		const match = router.getRoute("/simple");
 
 		expect(match).toBeDefined();
-		expect(match?.Component).toBe(MockComponent);
+		expect(match?.PageComponent).toBe(MockComponent);
 		expect(match?.loader).toBeUndefined();
 		expect(match?.meta).toBeUndefined();
 	});
 
 	it("should prioritize exact matches over parameterized routes", () => {
 		const routes = {
-			exact: createRoute("/users/me", () => ({ Component: MockComponent })),
-			param: createRoute("/users/:id", () => ({ Component: AnotherComponent })),
+			exact: createRoute("/users/me", () => ({ PageComponent: MockComponent })),
+			param: createRoute("/users/:id", () => ({
+				PageComponent: AnotherComponent,
+			})),
 		};
 
 		const router = createRouter(routes);
 		const exactMatch = router.getRoute("/users/me");
 		const paramMatch = router.getRoute("/users/123");
 
-		expect(exactMatch?.Component).toBe(MockComponent);
-		expect(paramMatch?.Component).toBe(AnotherComponent);
+		expect(exactMatch?.PageComponent).toBe(MockComponent);
+		expect(paramMatch?.PageComponent).toBe(AnotherComponent);
 		expect(paramMatch?.params).toEqual({ id: "123" });
+	});
+
+	it("should support LoadingComponent and ErrorComponent in router.getRoute", () => {
+		const LoadingComp: ComponentType<Record<string, unknown>> = () => null;
+		const ErrorComp: ComponentType<Record<string, unknown>> = () => null;
+
+		const routes = {
+			asyncPage: createRoute("/async-page", () => ({
+				PageComponent: MockComponent,
+				LoadingComponent: LoadingComp,
+				ErrorComponent: ErrorComp,
+				loader: async () => ({ data: "loaded" }),
+			})),
+		};
+
+		const router = createRouter(routes);
+		const match = router.getRoute("/async-page");
+
+		expect(match).toBeDefined();
+		expect(match?.PageComponent).toBe(MockComponent);
+		expect(match?.LoadingComponent).toBe(LoadingComp);
+		expect(match?.ErrorComponent).toBe(ErrorComp);
+		expect(match?.loader).toBeDefined();
 	});
 });
 
@@ -414,7 +455,7 @@ describe("Route validation", () => {
 			item: createRoute(
 				"/item",
 				({ query }) => ({
-					Component: MockComponent,
+					PageComponent: MockComponent,
 					loader: () => query?.id || "no-id",
 				}),
 				{ query: schema },
@@ -437,7 +478,7 @@ describe("Route validation", () => {
 			form: createRoute(
 				"/form",
 				({ query }) => ({
-					Component: MockComponent,
+					PageComponent: MockComponent,
 					loader: () => query || null,
 				}),
 				{ query: schema },
@@ -467,7 +508,7 @@ describe("Route validation", () => {
 			auth: createRoute(
 				"/auth",
 				({ query }) => ({
-					Component: MockComponent,
+					PageComponent: MockComponent,
 					loader: () => query?.token || "no-token",
 				}),
 				{ query: asyncSchema },
@@ -498,7 +539,7 @@ describe("Route validation", () => {
 			filter: createRoute(
 				"/filter",
 				({ query }) => ({
-					Component: MockComponent,
+					PageComponent: MockComponent,
 					loader: () => query?.tags || [],
 				}),
 				{ query: schema },
@@ -520,17 +561,17 @@ describe("Route validation", () => {
 describe("Edge cases", () => {
 	it("should handle routes with no handler context", () => {
 		const route = createRoute("/test", () => ({
-			Component: MockComponent,
+			PageComponent: MockComponent,
 		}));
 
 		const result = route();
-		expect(result.Component).toBe(MockComponent);
+		expect(result.PageComponent).toBe(MockComponent);
 	});
 
 	it("should handle empty query parameters", async () => {
 		const routes = {
 			search: createRoute("/search", ({ query }) => ({
-				Component: MockComponent,
+				PageComponent: MockComponent,
 				loader: () => query || null,
 			})),
 		};
@@ -547,7 +588,7 @@ describe("Edge cases", () => {
 	it("should handle undefined meta function return", () => {
 		const routes = {
 			page: createRoute("/page", () => ({
-				Component: MockComponent,
+				PageComponent: MockComponent,
 				meta: () => [undefined, { name: "title", content: "Test" }],
 			})),
 		};
@@ -566,7 +607,7 @@ describe("Edge cases", () => {
 	it("should handle routes with special characters", () => {
 		const routes = {
 			special: createRoute("/items/:id", ({ params }) => ({
-				Component: MockComponent,
+				PageComponent: MockComponent,
 				loader: () => params.id,
 			})),
 		};

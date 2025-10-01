@@ -13,7 +13,9 @@ import type {
 } from "./types";
 
 type HandlerReturn<ComponentProps, LoaderData> = {
-	Component: ComponentType<ComponentProps>;
+	PageComponent: ComponentType<ComponentProps>;
+	LoadingComponent?: ComponentType<ComponentProps>;
+	ErrorComponent?: ComponentType<ComponentProps>;
 	loader?: () => LoaderData | Promise<LoaderData>;
 	meta?: (
 		data?: LoaderData,
@@ -39,7 +41,7 @@ type HandlerReturn<ComponentProps, LoaderData> = {
  * const userRoute = createRoute(
  *   "/user/:id",
  *   ({ params, query }) => ({
- *     Component: UserPage,
+ *     PageComponent: UserPage,
  *     loader: () => fetchUser(params.id),
  *     meta: (data) => [{ name: "title", content: `User ${data.name}` }]
  *   }),
@@ -94,9 +96,9 @@ export function createRoute<
  * @example
  * ```ts
  * const router = createRouter({
- *   home: createRoute("/", () => ({ Component: HomePage })),
+ *   home: createRoute("/", () => ({ PageComponent: HomePage })),
  *   user: createRoute("/user/:id", ({ params }) => ({
- *     Component: UserPage,
+ *     PageComponent: UserPage,
  *     loader: () => fetchUser(params.id)
  *   }))
  * });
@@ -105,7 +107,7 @@ export function createRoute<
  * const route = router.getRoute("/user/123");
  * if (route) {
  *   const data = await route.loader?.();
- *   // render route.Component with data
+ *   // render route.PageComponent with data
  * }
  * ```
  */
@@ -129,7 +131,7 @@ export const createRouter = <
 			path: string,
 			queryParams: Record<string, string | string[]> = {},
 		) => {
-			const route = findRoute(internalRouter, "GET", path);
+			const route = findRoute<Route>(internalRouter, "GET", path);
 			if (!route?.data) {
 				return null;
 			}
@@ -143,10 +145,13 @@ export const createRouter = <
 				context: config?.routerContext || {},
 			};
 			const responseObj = handler(context);
-			const { Component, loader, meta } = responseObj;
+			const { PageComponent, LoadingComponent, ErrorComponent, loader, meta } =
+				responseObj;
 
 			return {
-				Component,
+				PageComponent,
+				LoadingComponent,
+				ErrorComponent,
 				params,
 				loader,
 				meta,
