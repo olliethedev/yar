@@ -28,11 +28,12 @@ Creates a type-safe route definition.
 **Parameters:**
 - `path` (string): Route pattern with optional parameters (e.g., `/user/:id`)
 - `handler` (function): Function receiving `{ params, query }` and returning:
-  - `PageComponent`: React component to render
+  - `PageComponent?`: Optional React component to render
   - `LoadingComponent?`: Optional loading component to show while data loads
   - `ErrorComponent?`: Optional error component to show on errors
   - `loader?`: Optional async function to load data
   - `meta?`: Optional function to generate meta tags (receives loader data)
+  - `extra?`: Optional field for additional static data (e.g., breadcrumbs, auth requirements, layout config)
 - `options?` (object): Optional configuration
   - `query`: Standard Schema for query parameter validation
 
@@ -120,14 +121,15 @@ async function handleRequest(pathname: string, queryParams: Record<string, strin
     return { status: 404, html: "<h1>404 - Page Not Found</h1>" };
   }
 
-  const { PageComponent, LoadingComponent, ErrorComponent, params, loader, meta } = route;
+  const { PageComponent, LoadingComponent, ErrorComponent, params, loader, meta, extra } = route;
   const data = loader ? await loader() : undefined;
   const metaTags = meta ? meta(data) : [];
 
   return {
     status: 200,
     metaTags,
-    element: <PageComponent params={params} data={data} />,
+    element: PageComponent ? <PageComponent params={params} data={data} /> : null,
+    extra, // Additional static data available for the route
   };
 }
 
@@ -170,6 +172,47 @@ async function extractMetadata(pathname: string, queryParams: Record<string, str
 }
 ```
 
+### Using the `extra` Field
+
+The `extra` field allows you to attach additional static data to routes, such as breadcrumbs, authentication requirements, or layout configurations:
+
+```tsx
+const adminRoute = createRoute(
+  "/admin/users",
+  () => ({
+    PageComponent: AdminUsersPage,
+    extra: {
+      breadcrumbs: ["Home", "Admin", "Users"],
+      requiresAuth: true,
+      permissions: ["admin:users:read"],
+      layout: "admin",
+    },
+  })
+);
+
+// Later, access the extra data:
+const route = router.getRoute("/admin/users");
+if (route?.extra?.requiresAuth) {
+  // Check authentication
+}
+```
+
+### Data-Only Routes
+
+Since `PageComponent` is optional, you can create data-only routes for API endpoints or data fetching:
+
+```tsx
+const apiRoute = createRoute(
+  "/api/data/:id",
+  ({ params }) => ({
+    loader: async () => {
+      const response = await fetch(`https://api.example.com/data/${params.id}`);
+      return response.json();
+    },
+    extra: { type: "api", version: "v1" },
+  })
+);
+```
 
 ## Contributing
 

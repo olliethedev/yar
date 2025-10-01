@@ -12,14 +12,15 @@ import type {
 	RouterConfig,
 } from "./types";
 
-type HandlerReturn<ComponentProps, LoaderData> = {
-	PageComponent: ComponentType<ComponentProps>;
+type HandlerReturn<ComponentProps, LoaderData, Extra = unknown> = {
+	PageComponent?: ComponentType<ComponentProps>;
 	LoadingComponent?: ComponentType<ComponentProps>;
 	ErrorComponent?: ComponentType<ComponentProps>;
 	loader?: () => LoaderData | Promise<LoaderData>;
 	meta?: (
 		data?: LoaderData,
 	) => Array<React.JSX.IntrinsicElements["meta"] | undefined>;
+	extra?: Extra;
 };
 
 /**
@@ -54,12 +55,13 @@ export function createRoute<
 	Options extends RouteOptions,
 	LoaderData,
 	ComponentProps,
+	Extra = unknown,
 >(
 	path: Path,
 	handler: (context: {
 		params: InferParam<Path>;
 		query: InferQuery<Options> | undefined;
-	}) => HandlerReturn<ComponentProps, LoaderData>,
+	}) => HandlerReturn<ComponentProps, LoaderData, Extra>,
 	options?: Options,
 ) {
 	type Context = InputContext<Path, Options>;
@@ -145,8 +147,14 @@ export const createRouter = <
 				context: config?.routerContext || {},
 			};
 			const responseObj = handler(context);
-			const { PageComponent, LoadingComponent, ErrorComponent, loader, meta } =
-				responseObj;
+			const {
+				PageComponent,
+				LoadingComponent,
+				ErrorComponent,
+				loader,
+				meta,
+				extra,
+			} = responseObj;
 
 			return {
 				PageComponent,
@@ -155,6 +163,7 @@ export const createRouter = <
 				params,
 				loader,
 				meta,
+				extra,
 			};
 		},
 	};

@@ -166,6 +166,42 @@ describe("createRoute", () => {
 		expect(result.LoadingComponent).toBe(LoadingComp);
 		expect(result.ErrorComponent).toBe(ErrorComp);
 	});
+
+	it("should allow optional PageComponent", () => {
+		const route = createRoute("/no-component", () => ({
+			loader: () => ({ data: "test" }),
+		}));
+
+		const result = route();
+		expect(result.PageComponent).toBeUndefined();
+		expect(result.loader).toBeDefined();
+	});
+
+	it("should support extra field for additional static data", () => {
+		const extraData = { breadcrumbs: ["Home", "About"], layout: "full-width" };
+
+		const route = createRoute("/with-extra", () => ({
+			PageComponent: MockComponent,
+			extra: extraData,
+		}));
+
+		const result = route();
+		expect(result.PageComponent).toBe(MockComponent);
+		expect(result.extra).toEqual(extraData);
+	});
+
+	it("should support typed extra field", () => {
+		type ExtraType = { apiVersion: string; requiresAuth: boolean };
+		const extraData: ExtraType = { apiVersion: "v2", requiresAuth: true };
+
+		const route = createRoute("/typed-extra", () => ({
+			PageComponent: MockComponent,
+			extra: extraData,
+		}));
+
+		const result = route();
+		expect(result.extra).toEqual(extraData);
+	});
 });
 
 describe("createRouter", () => {
@@ -434,6 +470,38 @@ describe("createRouter", () => {
 		expect(match?.LoadingComponent).toBe(LoadingComp);
 		expect(match?.ErrorComponent).toBe(ErrorComp);
 		expect(match?.loader).toBeDefined();
+	});
+
+	it("should handle routes with optional PageComponent", () => {
+		const routes = {
+			dataOnly: createRoute("/data-only", () => ({
+				loader: async () => ({ data: "some data" }),
+			})),
+		};
+
+		const router = createRouter(routes);
+		const match = router.getRoute("/data-only");
+
+		expect(match).toBeDefined();
+		expect(match?.PageComponent).toBeUndefined();
+		expect(match?.loader).toBeDefined();
+	});
+
+	it("should return extra field from router.getRoute", () => {
+		const extraData = { section: "admin", requiresAuth: true };
+
+		const routes = {
+			admin: createRoute("/admin", () => ({
+				PageComponent: MockComponent,
+				extra: extraData,
+			})),
+		};
+
+		const router = createRouter(routes);
+		const match = router.getRoute("/admin");
+
+		expect(match).toBeDefined();
+		expect(match?.extra).toEqual(extraData);
 	});
 });
 
