@@ -61,15 +61,15 @@ export function createRoute<
 	options?: Options,
 ) {
 	type Context = InputContext<Path, Options>;
-	const internalHandler = async (
+	const internalHandler = (
 		...inputCtx: HasRequiredKeys<Context> extends true ? [Context] : [Context?]
 	) => {
 		const context = (inputCtx[0] || {}) as InputContext<any, any>;
-		const internalContext = await createInternalContext(context, {
+		const internalContext = createInternalContext(context, {
 			options,
 			path,
 		});
-		const response = await handler(internalContext as any);
+		const response = handler(internalContext as any);
 
 		return response;
 	};
@@ -89,7 +89,7 @@ export function createRoute<
  *
  * @returns {Object} Router object with the following properties:
  *   - `routes`: The original routes object passed in
- *   - `getRoute`: Async function to match a path and return the corresponding route with component, params, loader, and meta
+ *   - `getRoute`: Function to match a path and return the corresponding route with component, params, loader, and meta
  *
  * @example
  * ```ts
@@ -102,7 +102,7 @@ export function createRoute<
  * });
  *
  * // Later, match a route:
- * const route = await router.getRoute("/user/123");
+ * const route = router.getRoute("/user/123");
  * if (route) {
  *   const data = await route.loader?.();
  *   // render route.Component with data
@@ -125,7 +125,7 @@ export const createRouter = <
 	return {
 		routes: routes,
 
-		getRoute: async (
+		getRoute: (
 			path: string,
 			queryParams: Record<string, string | string[]> = {},
 		) => {
@@ -142,7 +142,7 @@ export const createRouter = <
 				query: queryParams,
 				context: config?.routerContext || {},
 			};
-			const responseObj = await handler(context);
+			const responseObj = handler(context);
 			const { Component, loader, meta } = responseObj;
 
 			return {
@@ -155,7 +155,7 @@ export const createRouter = <
 	};
 };
 
-const createInternalContext = async (
+const createInternalContext = (
 	context: InputContext<any, any>,
 	{
 		options,
@@ -174,8 +174,10 @@ const createInternalContext = async (
 	} | null = null;
 
 	if (options) {
-		const { data: validationData, error: validationError } =
-			await runValidation(options, context);
+		const { data: validationData, error: validationError } = runValidation(
+			options,
+			context,
+		);
 		data = validationData;
 		error = validationError;
 	}
@@ -207,10 +209,10 @@ type ValidationResponse =
 			};
 	  };
 
-async function runValidation(
+function runValidation(
 	options: RouteOptions,
 	context: InputContext<any, any> = {},
-): Promise<ValidationResponse> {
+): ValidationResponse {
 	const request = {
 		query: context.query,
 	} as {
@@ -218,7 +220,15 @@ async function runValidation(
 	};
 
 	if (options.query) {
-		const result = await options.query["~standard"].validate(context.query);
+		const result = options.query["~standard"].validate(context.query);
+
+		// Check if result is a Promise (async validation)
+		if (result instanceof Promise) {
+			throw new Error(
+				"Async validation is not supported. Please use synchronous validators only.",
+			);
+		}
+
 		if (result.issues) {
 			return {
 				data: null,

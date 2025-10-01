@@ -12,9 +12,7 @@ export interface RouteOptions {
 export type Route<
 	Path extends string = string,
 	Options extends RouteOptions = RouteOptions,
-	Handler extends (inputCtx: any) => Promise<any> = (
-		inputCtx: any,
-	) => Promise<any>,
+	Handler extends (inputCtx: any) => any = (inputCtx: any) => any,
 > = Handler & {
 	options?: Options;
 	path: Path;

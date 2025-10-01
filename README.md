@@ -47,7 +47,7 @@ Creates a router instance from route definitions.
 
 **Returns:** Router object with:
 - `routes`: Original routes object
-- `getRoute(path, queryParams?)`: Async function to match and execute a route
+- `getRoute(path, queryParams?)`: Function to match and execute a route
 
 
 ## Usage
@@ -112,7 +112,7 @@ Here's a framework-agnostic example showing how to use the router to handle inco
 import { AppRouter } from "./router";
 
 async function handleRequest(pathname: string, queryParams: Record<string, string | string[]>) {
-  const route = await AppRouter().getRoute(pathname, queryParams);
+  const route = AppRouter().getRoute(pathname, queryParams);
   
   if (!route) {
     return { status: 404, html: "<h1>404 - Page Not Found</h1>" };
@@ -137,7 +137,7 @@ handleRequest("/page-b/123", { test: "hello" });
 
 ```tsx
 async function extractMetadata(pathname: string, queryParams: Record<string, string | string[]>) {
-  const route = await AppRouter().getRoute(pathname, queryParams);
+  const route = AppRouter().getRoute(pathname, queryParams);
   
   if (!route || !route.meta) {
     return { title: "My Site", description: "" };
