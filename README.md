@@ -28,7 +28,9 @@ Creates a type-safe route definition.
 **Parameters:**
 - `path` (string): Route pattern with optional parameters (e.g., `/user/:id`)
 - `handler` (function): Function receiving `{ params, query }` and returning:
-  - `Component`: React component to render
+  - `PageComponent`: React component to render
+  - `LoadingComponent?`: Optional loading component to show while data loads
+  - `ErrorComponent?`: Optional error component to show on errors
   - `loader?`: Optional async function to load data
   - `meta?`: Optional function to generate meta tags (receives loader data)
 - `options?` (object): Optional configuration
@@ -61,7 +63,7 @@ import { z } from "zod";
 const pageARoute = createRoute(
     "/page-a",
     () => ({
-        Component: PageA,
+        PageComponent: PageA,
         meta: () => [
             { name: "title", content: "Page A!" },
             { name: "description", content: "Page A Description" },
@@ -74,7 +76,7 @@ const pageBRoute = createRoute(
     (context) => {
         const loader = () => dataForPageB(context.params, context.query?.test || "NONE");
         return {
-            Component: PageB,
+            PageComponent: PageB,
             loader,
             meta: (data?: string) => [
                 { name: "title", content: "Page B" },
@@ -118,14 +120,14 @@ async function handleRequest(pathname: string, queryParams: Record<string, strin
     return { status: 404, html: "<h1>404 - Page Not Found</h1>" };
   }
 
-  const { Component, params, loader, meta } = route;
+  const { PageComponent, LoadingComponent, ErrorComponent, params, loader, meta } = route;
   const data = loader ? await loader() : undefined;
   const metaTags = meta ? meta(data) : [];
 
   return {
     status: 200,
     metaTags,
-    element: <Component params={params} data={data} />,
+    element: <PageComponent params={params} data={data} />,
   };
 }
 
