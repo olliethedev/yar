@@ -82,6 +82,22 @@ export function createRoute<
 	return internalHandler;
 }
 
+// Helper type to extract the return type from a route handler
+type ExtractRouteReturn<R> = R extends (...args: any[]) => infer Return
+	? Return
+	: never;
+
+// Helper type to get the union of all route return types
+type InferRouteReturnTypes<Routes extends Record<string, Route>> = {
+	[K in keyof Routes]: ExtractRouteReturn<Routes[K]>;
+}[keyof Routes];
+
+// The return type for getRoute, combining the handler return with params
+type GetRouteReturn<Routes extends Record<string, Route>> =
+	InferRouteReturnTypes<Routes> & {
+		params: Record<string, string>;
+	};
+
 /**
  * Creates a router instance from a collection of routes.
  *
@@ -129,10 +145,16 @@ export const createRouter = <
 	return {
 		routes: routes,
 
+		/**
+		 * Returns the route object for the given path and query params
+		 * @param path
+		 * @param queryParams
+		 * @returns {GetRouteReturn<E> | null} The route object for the given path and query params
+		 */
 		getRoute: (
 			path: string,
 			queryParams: Record<string, string | string[]> = {},
-		) => {
+		): GetRouteReturn<E> | null => {
 			const route = findRoute<Route>(internalRouter, "GET", path);
 			if (!route?.data) {
 				return null;
@@ -164,7 +186,7 @@ export const createRouter = <
 				loader,
 				meta,
 				extra,
-			};
+			} as GetRouteReturn<E>;
 		},
 	};
 };
