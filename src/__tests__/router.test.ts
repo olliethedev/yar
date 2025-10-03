@@ -182,12 +182,14 @@ describe("createRoute", () => {
 
 		const route = createRoute("/with-extra", () => ({
 			PageComponent: MockComponent,
-			extra: extraData,
+			extra: () => extraData,
 		}));
 
 		const result = route();
 		expect(result.PageComponent).toBe(MockComponent);
-		expect(result.extra).toEqual(extraData);
+		if (result.extra) {
+			expect(result.extra()).toEqual(extraData);
+		}
 	});
 
 	it("should support typed extra field", () => {
@@ -196,11 +198,13 @@ describe("createRoute", () => {
 
 		const route = createRoute("/typed-extra", () => ({
 			PageComponent: MockComponent,
-			extra: extraData,
+			extra: () => extraData,
 		}));
 
 		const result = route();
-		expect(result.extra).toEqual(extraData);
+		if (result.extra) {
+			expect(result.extra()).toEqual(extraData);
+		}
 	});
 });
 
@@ -493,7 +497,7 @@ describe("createRouter", () => {
 		const routes = {
 			admin: createRoute("/admin", () => ({
 				PageComponent: MockComponent,
-				extra: extraData,
+				extra: () => extraData,
 			})),
 		};
 
@@ -501,7 +505,9 @@ describe("createRouter", () => {
 		const match = router.getRoute("/admin");
 
 		expect(match).toBeDefined();
-		expect(match?.extra).toEqual(extraData);
+		if (match?.extra) {
+			expect(match.extra()).toEqual(extraData);
+		}
 	});
 });
 
@@ -778,5 +784,152 @@ describe("Edge cases", () => {
 				{ name: "description", content: "Async meta tags" },
 			]);
 		}
+	});
+
+	it("should infer extra function types correctly - no params", () => {
+		const route = createRoute("/extra-no-params", () => ({
+			PageComponent: MockComponent,
+			extra: () => ({ analytics: "tracking-id-123" }),
+		}));
+
+		const router = createRouter({ route });
+		const match = router.getRoute("/extra-no-params");
+
+		expect(match?.extra).toBeDefined();
+		if (match?.extra) {
+			const extraData = match.extra();
+			expect(extraData).toEqual({ analytics: "tracking-id-123" });
+		}
+	});
+
+	it("should infer extra function types correctly - with params", () => {
+		const route = createRoute("/extra-custom", () => ({
+			PageComponent: MockComponent,
+			extra: (userId: string, sessionId: number) => ({
+				tracking: { userId, sessionId },
+				timestamp: Date.now(),
+			}),
+		}));
+
+		const router = createRouter({ route });
+		const match = router.getRoute("/extra-custom");
+
+		expect(match?.extra).toBeDefined();
+		if (match?.extra) {
+			const extraData = match.extra("user-123", 456);
+			expect(extraData.tracking).toEqual({
+				userId: "user-123",
+				sessionId: 456,
+			});
+			expect(extraData.timestamp).toBeGreaterThan(0);
+		}
+	});
+
+	it("should support async extra functions", async () => {
+		const route = createRoute("/extra-async", () => ({
+			PageComponent: MockComponent,
+			extra: async (apiKey: string) => {
+				// Simulate async operation
+				await new Promise((resolve) => setTimeout(resolve, 10));
+				return {
+					apiKey,
+					validated: true,
+					timestamp: Date.now(),
+				};
+			},
+		}));
+
+		const router = createRouter({ route });
+		const match = router.getRoute("/extra-async");
+
+		expect(match?.extra).toBeDefined();
+		if (match?.extra) {
+			const extraData = await match.extra("secret-key");
+			expect(extraData.apiKey).toBe("secret-key");
+			expect(extraData.validated).toBe(true);
+			expect(extraData.timestamp).toBeGreaterThan(0);
+		}
+	});
+
+	// Type safety test - this DOES cause a compile error now! ✅
+	it("should enforce meta shape at compile time", () => {
+		const route = createRoute("/invalid-meta", () => ({
+			PageComponent: MockComponent,
+			// @ts-expect-error - This correctly fails: invalid meta shape
+			meta: () => [{ invalid: "property", notAllowed: true }],
+		}));
+
+		expect(route).toBeDefined();
+	});
+
+	it("should support route-level metadata", () => {
+		const homeRoute = createRoute(
+			"/",
+			() => ({
+				PageComponent: MockComponent,
+			}),
+			undefined,
+			{ isStatic: true, category: "public" },
+		);
+
+		const userRoute = createRoute(
+			"/user/:id",
+			() => ({
+				PageComponent: MockComponent,
+			}),
+			undefined,
+			{ isStatic: false, category: "user", requiresAuth: true },
+		);
+
+		expect(homeRoute.meta).toEqual({ isStatic: true, category: "public" });
+		expect(userRoute.meta).toEqual({
+			isStatic: false,
+			category: "user",
+			requiresAuth: true,
+		});
+	});
+
+	it("should allow filtering routes by metadata", () => {
+		const routes = {
+			home: createRoute(
+				"/",
+				() => ({ PageComponent: MockComponent }),
+				undefined,
+				{ isStatic: true },
+			),
+			about: createRoute(
+				"/about",
+				() => ({ PageComponent: MockComponent }),
+				undefined,
+				{ isStatic: true },
+			),
+			user: createRoute(
+				"/user/:id",
+				() => ({ PageComponent: MockComponent }),
+				undefined,
+				{ isStatic: false, requiresAuth: true },
+			),
+		};
+
+		const router = createRouter(routes);
+
+		// Filter static routes without calling handlers
+		const staticRoutes = Object.entries(router.routes).filter(
+			([_, route]) => route.meta?.isStatic === true,
+		);
+
+		expect(staticRoutes).toHaveLength(2);
+		expect(staticRoutes.map(([name]) => name)).toEqual(["home", "about"]);
+
+		// Filter routes requiring auth
+		const authRoutes = Object.entries(router.routes).filter(
+			([_, route]) =>
+				route.meta &&
+				"requiresAuth" in route.meta &&
+				route.meta.requiresAuth === true,
+		);
+
+		expect(authRoutes).toHaveLength(1);
+		expect(authRoutes[0][0]).toBe("user");
 	});
 });

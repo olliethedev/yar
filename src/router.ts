@@ -8,28 +8,27 @@ import type {
 	InferQuery,
 	InputContext,
 	Route,
+	RouteMeta,
 	RouteOptions,
 	RouterConfig,
 } from "./types";
 
+// Helper type to validate meta function return type
+type MetaArray = Array<React.JSX.IntrinsicElements["meta"] | undefined>;
+type MetaReturnType = MetaArray | Promise<MetaArray>;
+
 type HandlerReturn<
 	ComponentProps,
 	LoaderData,
-	Extra = unknown,
-	MetaFn extends (
-		...args: any[]
-	) =>
-		| Array<React.JSX.IntrinsicElements["meta"] | undefined>
-		| Promise<Array<React.JSX.IntrinsicElements["meta"] | undefined>> = () =>
-		| Array<React.JSX.IntrinsicElements["meta"] | undefined>
-		| Promise<Array<React.JSX.IntrinsicElements["meta"] | undefined>>,
+	ExtraFn extends (...args: any[]) => any | Promise<any> = () => any,
+	MetaFn extends (...args: any[]) => MetaReturnType = () => MetaArray,
 > = {
 	PageComponent?: ComponentType<ComponentProps>;
 	LoadingComponent?: ComponentType<ComponentProps>;
 	ErrorComponent?: ComponentType<ComponentProps>;
 	loader?: () => LoaderData | Promise<LoaderData>;
 	meta?: MetaFn;
-	extra?: Extra;
+	extra?: ExtraFn;
 };
 
 /**
@@ -39,14 +38,16 @@ type HandlerReturn<
  * @template Options - Route options including query parameter validation schema
  * @template LoaderData - The type of data returned by the optional loader function
  * @template ComponentProps - The props type for the React component
- * @template Extra - The type of extra data returned by the handler
- * @template MetaFn - The type of the meta function
+ * @template ExtraFn - The type of the extra function
+ * @template MetaFn - The type of the meta function (must return valid React meta elements)
+ * @template Meta - The type of route-level metadata
  *
  * @param {Path} path - The route path pattern with optional dynamic segments
  * @param {Function} handler - Handler function that receives route context (params, query) and returns component, loader, and meta configuration
  * @param {Options} [options] - Optional configuration including query parameter validation schema
+ * @param {Meta} [meta] - Optional route-level metadata for filtering/categorization without executing the handler
  *
- * @returns {Function} A route handler function with path and options attached
+ * @returns {Function} A route handler function with path, options, and meta attached
  *
  * @example
  * ```ts
@@ -57,7 +58,8 @@ type HandlerReturn<
  *     loader: () => fetchUser(params.id),
  *     meta: (data) => [{ name: "title", content: `User ${data.name}` }]
  *   }),
- *   { query: z.object({ tab: z.string().optional() }) }
+ *   { query: z.object({ tab: z.string().optional() }) },
+ *   { isStatic: false, requiresAuth: true }
  * );
  * ```
  */
@@ -66,21 +68,17 @@ export function createRoute<
 	Options extends RouteOptions,
 	LoaderData,
 	ComponentProps,
-	Extra = unknown,
-	MetaFn extends (
-		...args: any[]
-	) =>
-		| Array<React.JSX.IntrinsicElements["meta"] | undefined>
-		| Promise<Array<React.JSX.IntrinsicElements["meta"] | undefined>> = () =>
-		| Array<React.JSX.IntrinsicElements["meta"] | undefined>
-		| Promise<Array<React.JSX.IntrinsicElements["meta"] | undefined>>,
+	ExtraFn extends (...args: any[]) => any | Promise<any> = () => any,
+	MetaFn extends (...args: any[]) => MetaReturnType = () => MetaArray,
+	Meta extends RouteMeta = RouteMeta,
 >(
 	path: Path,
 	handler: (context: {
 		params: InferParam<Path>;
 		query: InferQuery<Options> | undefined;
-	}) => HandlerReturn<ComponentProps, LoaderData, Extra, MetaFn>,
+	}) => HandlerReturn<ComponentProps, LoaderData, ExtraFn, MetaFn>,
 	options?: Options,
+	meta?: Meta,
 ) {
 	type Context = InputContext<Path, Options>;
 	const internalHandler = (
@@ -97,6 +95,7 @@ export function createRoute<
 	};
 	internalHandler.options = options;
 	internalHandler.path = path;
+	internalHandler.meta = meta;
 	return internalHandler;
 }
 

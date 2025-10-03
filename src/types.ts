@@ -9,13 +9,17 @@ export interface RouteOptions {
 	query?: StandardSchemaV1;
 }
 
+export type RouteMeta = Record<string, any>;
+
 export type Route<
 	Path extends string = string,
 	Options extends RouteOptions = RouteOptions,
 	Handler extends (inputCtx: any) => any = (inputCtx: any) => any,
+	Meta extends RouteMeta = RouteMeta,
 > = Handler & {
 	options?: Options;
 	path: Path;
+	meta?: Meta;
 };
 
 export type InputContext<
