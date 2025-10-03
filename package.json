@@ -1,6 +1,6 @@
 {
   "name": "@olliethedev/yar",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "packageManager": "pnpm@10.14.0",
   "description": "Pluggable router for modern react frameworks",
   "type": "module",

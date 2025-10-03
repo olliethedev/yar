@@ -753,4 +753,30 @@ describe("Edge cases", () => {
 			]);
 		}
 	});
+
+	it("should support async meta functions", async () => {
+		const route = createRoute("/meta-async", () => ({
+			PageComponent: MockComponent,
+			meta: async (userId: string) => {
+				// Simulate async operation (e.g., fetching data)
+				await new Promise((resolve) => setTimeout(resolve, 10));
+				return [
+					{ name: "title", content: `User ${userId}` },
+					{ name: "description", content: "Async meta tags" },
+				];
+			},
+		}));
+
+		const router = createRouter({ route });
+		const match = router.getRoute("/meta-async");
+
+		expect(match?.meta).toBeDefined();
+		if (match?.meta) {
+			const metaTags = await match.meta("123");
+			expect(metaTags).toEqual([
+				{ name: "title", content: "User 123" },
+				{ name: "description", content: "Async meta tags" },
+			]);
+		}
+	});
 });
