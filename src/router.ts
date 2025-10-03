@@ -19,14 +19,14 @@ type MetaReturnType = MetaArray | Promise<MetaArray>;
 
 type HandlerReturn<
 	ComponentProps,
-	LoaderData,
+	LoaderFn extends (...args: any[]) => any | Promise<any> = () => any,
 	ExtraFn extends (...args: any[]) => any | Promise<any> = () => any,
 	MetaFn extends (...args: any[]) => MetaReturnType = () => MetaArray,
 > = {
 	PageComponent?: ComponentType<ComponentProps>;
 	LoadingComponent?: ComponentType<ComponentProps>;
 	ErrorComponent?: ComponentType<ComponentProps>;
-	loader?: () => LoaderData | Promise<LoaderData>;
+	loader?: LoaderFn;
 	meta?: MetaFn;
 	extra?: ExtraFn;
 };
@@ -36,8 +36,8 @@ type HandlerReturn<
  *
  * @template Path - The route path string, which may include dynamic segments (e.g., "/users/:id")
  * @template Options - Route options including query parameter validation schema
- * @template LoaderData - The type of data returned by the optional loader function
  * @template ComponentProps - The props type for the React component
+ * @template LoaderFn - The type of the loader function
  * @template ExtraFn - The type of the extra function
  * @template MetaFn - The type of the meta function (must return valid React meta elements)
  * @template Meta - The type of route-level metadata
@@ -55,7 +55,7 @@ type HandlerReturn<
  *   "/user/:id",
  *   ({ params, query }) => ({
  *     PageComponent: UserPage,
- *     loader: () => fetchUser(params.id),
+ *     loader: (signal?: AbortSignal) => fetchUser(params.id, signal),
  *     meta: (data) => [{ name: "title", content: `User ${data.name}` }]
  *   }),
  *   { query: z.object({ tab: z.string().optional() }) },
@@ -66,8 +66,8 @@ type HandlerReturn<
 export function createRoute<
 	Path extends string,
 	Options extends RouteOptions,
-	LoaderData,
 	ComponentProps,
+	LoaderFn extends (...args: any[]) => any | Promise<any> = () => any,
 	ExtraFn extends (...args: any[]) => any | Promise<any> = () => any,
 	MetaFn extends (...args: any[]) => MetaReturnType = () => MetaArray,
 	Meta extends RouteMeta = RouteMeta,
@@ -76,7 +76,7 @@ export function createRoute<
 	handler: (context: {
 		params: InferParam<Path>;
 		query: InferQuery<Options> | undefined;
-	}) => HandlerReturn<ComponentProps, LoaderData, ExtraFn, MetaFn>,
+	}) => HandlerReturn<ComponentProps, LoaderFn, ExtraFn, MetaFn>,
 	options?: Options,
 	meta?: Meta,
 ) {
