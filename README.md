@@ -1,218 +1,151 @@
 # @olliethedev/yar (Yet Another Router)
 
-## About
+A simple, type-safe router for React that works with any framework.
 
-`@olliethedev/yar` is a simple and pluggable router for modern react frameworks. It is designed to be used as a part of any modern react framework.
+## Why use this?
 
-
-## Why another router?
-
-- **Composable**: Routes can be exported from npm packages and combined
-- **Framework Flexibility**: Not tied to any specific React framework
-- **Simple API**: Just two functions to learn: `createRoute` and `createRouter`
-- **Type Safety First**: Unlike many routers, `@olliethedev/yar` provides complete type inference for path parameters and validated query parameters
-- **Validation Built-in**: No need to manually validate query parameters - use your favorite schema library
+- ✨ **Super Simple** - Only 2 functions: `createRoute` and `createRouter`
+- 🔒 **Type Safe** - TypeScript knows your route params automatically
+- 🎯 **Flexible** - Works with any React framework
+- ✅ **Validated** - Built-in query parameter validation
 
 ## Installation
 
 ```bash
+npm install @olliethedev/yar
+# or
 pnpm add @olliethedev/yar
 ```
 
-## API Reference
+## Quick Start
 
-### `createRoute(path, handler, options?)`
-
-Creates a type-safe route definition.
-
-**Parameters:**
-- `path` (string): Route pattern with optional parameters (e.g., `/user/:id`)
-- `handler` (function): Function receiving `{ params, query }` and returning:
-  - `PageComponent?`: Optional React component to render
-  - `LoadingComponent?`: Optional loading component to show while data loads
-  - `ErrorComponent?`: Optional error component to show on errors
-  - `loader?`: Optional async function to load data
-  - `meta?`: Optional function to generate meta tags (receives loader data)
-  - `extra?`: Optional field for additional static data (e.g., breadcrumbs, auth requirements, layout config)
-- `options?` (object): Optional configuration
-  - `query`: Standard Schema for query parameter validation
-
-**Returns:** Route handler function with `path` and `options` properties
-
-### `createRouter(routes, config?)`
-
-Creates a router instance from route definitions.
-
-**Parameters:**
-- `routes` (object): Map of route names to route handlers
-- `config?` (object): Optional router configuration
-  - `routerContext?`: Shared context accessible to all routes
-
-**Returns:** Router object with:
-- `routes`: Original routes object
-- `getRoute(path, queryParams?)`: Function to match and execute a route
-
-
-## Usage
+Here's one complete example showing all features:
 
 ```tsx
 import { createRoute, createRouter } from "@olliethedev/yar";
-import PageA from "@/components/page-a";
-import PageB from "@/components/page-b";
-import { z } from "zod";
+import { z } from "zod"; // or any Standard Schema library
+import HomePage from "./pages/home";
+import BlogPostPage from "./pages/blog-post";
 
-const pageARoute = createRoute(
-    "/page-a",
-    () => ({
-        PageComponent: PageA,
-        meta: () => [
-            { name: "title", content: "Page A!" },
-            { name: "description", content: "Page A Description" },
-        ],
-    })
+// 1️⃣ Simple route - just a page
+const homeRoute = createRoute(
+  "/",
+  () => ({
+    PageComponent: HomePage,
+    meta: () => [{ name: "title", content: "Home" }],
+  }),
+  undefined,
+  { isStatic: true } // 🏷️ Optional: tag routes for filtering for SSG environments
 );
 
-const pageBRoute = createRoute(
-    "/page-b/:id",
-    (context) => {
-        const loader = () => dataForPageB(context.params, context.query?.test || "NONE");
-        return {
-            PageComponent: PageB,
-            loader,
-            meta: (data?: string) => [
-                { name: "title", content: "Page B" },
-                { name: "description", content: "Page B Description:" + data },
-                { property: "og:title", content: "Page B" },
-                { property: "og:description", content: "Page B Description" },
-            ],
-        };
+// 2️⃣ Dynamic route - with params, validation, and data loading
+const blogRoute = createRoute(
+  "/blog/:slug", // :slug becomes available as params.slug
+  ({ params, query }) => ({
+    PageComponent: BlogPostPage,
+    
+    // 📦 Load data (can use AbortSignal, options, etc.)
+    loader: async (signal?: AbortSignal) => {
+      const res = await fetch(`/api/posts/${params.slug}`, { signal });
+      return res.json();
     },
-    {
-        query: z.object({
-            test: z.string(),
-        }),
-    }
+    
+    // 📄 Generate meta tags (can use loader data)
+    meta: (post) => [
+      { name: "title", content: post.title },
+      { name: "description", content: post.excerpt },
+    ],
+    
+    // 🎨 Extra data for anything (breadcrumbs, layout, etc.)
+    extra: () => ({
+      breadcrumbs: ["Home", "Blog", params.slug],
+      layout: "blog",
+    }),
+  }),
+  {
+    // ✅ Validate query parameters
+    query: z.object({
+      preview: z.boolean().optional(),
+    }),
+  },
+  { isStatic: false, requiresAuth: false } // 🏷️ Route tags
 );
 
-const routes = {
-    pageA: pageARoute,
-    pageB: pageBRoute,
-} as const;
+// 3️⃣ Create router
+const router = createRouter({
+  home: homeRoute,
+  blog: blogRoute,
+});
 
-export const AppRouter = () => createRouter(routes);
-
-const dataForPageB = async (params: Record<string, string>, test: string): Promise<string> => {
-    return "Computed data: " + params.id + " Test:" + test;
-};
-
-```
-
-## Complete Example: Handling Routes
-
-Here's a framework-agnostic example showing how to use the router to handle incoming requests:
-
-```tsx
-import { AppRouter } from "./router";
-
-async function handleRequest(pathname: string, queryParams: Record<string, string | string[]>) {
-  const route = AppRouter().getRoute(pathname, queryParams);
+// 4️⃣ Use the router in your app
+async function handleRequest(url: string) {
+  const route = router.getRoute(url);
   
   if (!route) {
-    return { status: 404, html: "<h1>404 - Page Not Found</h1>" };
+    return <NotFoundPage />;
   }
 
-  const { PageComponent, LoadingComponent, ErrorComponent, params, loader, meta, extra } = route;
-  const data = loader ? await loader() : undefined;
-  const metaTags = meta ? meta(data) : [];
+  // Everything is typed! TypeScript knows the types of all params
+  const data = route.loader ? await route.loader() : null;
+  const metaTags = route.meta ? route.meta(data) : [];
+  const extras = route.extra ? route.extra() : null;
 
-  return {
-    status: 200,
-    metaTags,
-    element: PageComponent ? <PageComponent params={params} data={data} /> : null,
-    extra, // Additional static data available for the route
-  };
+  return (
+    <route.PageComponent 
+      params={route.params} 
+      data={data} 
+    />
+  );
 }
 
-handleRequest("/page-a", {});
-handleRequest("/page-b/123", { test: "hello" });
+// 5️⃣ Filter routes without running handlers (great for SSG!)
+const staticRoutes = Object.values(router.routes)
+  .filter(route => route.meta?.isStatic);
 ```
 
-### Extracting Metadata
+## What You Need to Know
 
+### `createRoute(path, handler, options?, routeMeta?)`
+
+Creates a route. The handler returns:
+- **`PageComponent`** - Your React component
+- **`loader()`** - Load data (can accept any params like `AbortSignal`)
+- **`meta()`** - Generate SEO tags (can accept any params)
+- **`extra()`** - Any extra data you need (can accept any params)
+
+The 4th parameter `routeMeta` lets you tag routes for filtering (e.g., `{ isStatic: true }`).
+
+### `createRouter(routes)`
+
+Combines your routes. Returns:
+- **`routes`** - All your routes
+- **`getRoute(path, query?)`** - Match a URL and get the route
+
+### Key Features
+
+**🎯 Path Parameters**
 ```tsx
-async function extractMetadata(pathname: string, queryParams: Record<string, string | string[]>) {
-  const route = AppRouter().getRoute(pathname, queryParams);
-  
-  if (!route || !route.meta) {
-    return { title: "My Site", description: "" };
-  }
-
-  const data = route.loader ? await route.loader() : undefined;
-  const metaTags = route.meta(data);
-
-  const findBy = (predicate: (m: React.JSX.IntrinsicElements["meta"]) => boolean) =>
-    metaTags.find((tag) => tag && predicate(tag));
-
-  const getContent = (m?: React.JSX.IntrinsicElements["meta"]) =>
-    (m && "content" in m ? m.content : undefined) as string | undefined;
-
-  const titleFromName = getContent(findBy((m) => m.name === "title"));
-  const titleFromOg = getContent(findBy((m) => m.property === "og:title"));
-  const descriptionFromName = getContent(findBy((m) => m.name === "description"));
-  const descriptionFromOg = getContent(findBy((m) => m.property === "og:description"));
-
-  return {
-    title: titleFromName ?? titleFromOg ?? "My Site",
-    description: descriptionFromName ?? descriptionFromOg ?? "",
-    openGraph: {
-      title: titleFromOg ?? titleFromName,
-      description: descriptionFromOg ?? descriptionFromName,
-    },
-  };
-}
+"/blog/:slug" → params.slug is automatically typed
 ```
 
-### Using the `extra` Field
-
-The `extra` field allows you to attach additional static data to routes, such as breadcrumbs, authentication requirements, or layout configurations:
-
+**✅ Query Validation**
 ```tsx
-const adminRoute = createRoute(
-  "/admin/users",
-  () => ({
-    PageComponent: AdminUsersPage,
-    extra: {
-      breadcrumbs: ["Home", "Admin", "Users"],
-      requiresAuth: true,
-      permissions: ["admin:users:read"],
-      layout: "admin",
-    },
-  })
-);
-
-// Later, access the extra data:
-const route = router.getRoute("/admin/users");
-if (route?.extra?.requiresAuth) {
-  // Check authentication
-}
+query: z.object({ sort: z.string() })
 ```
 
-### Data-Only Routes
-
-Since `PageComponent` is optional, you can create data-only routes for API endpoints or data fetching:
-
+**🏷️ Route Tags**
 ```tsx
-const apiRoute = createRoute(
-  "/api/data/:id",
-  ({ params }) => ({
-    loader: async () => {
-      const response = await fetch(`https://api.example.com/data/${params.id}`);
-      return response.json();
-    },
-    extra: { type: "api", version: "v1" },
-  })
-);
+{ isStatic: true, requiresAuth: false }
+// Filter without running handlers - perfect for finding static routes in SSG environments, or for filtering routes that require authentication.
 ```
+
+**🎨 Flexible Functions**
+```tsx
+loader: (signal) => fetch(url, { signal })
+meta: (data) => [{ name: "title", content: data.title }]
+extra: (userId) => ({ breadcrumbs: [...], userId })
+```
+Perfect for prefetching data and generating meta tags in SSR environments, or for adding extra data to your routes.
 
 ## Contributing
 
@@ -220,4 +153,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-MIT © [olliethedev](https://github.com/olliethedev)
+MIT
