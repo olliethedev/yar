@@ -685,4 +685,72 @@ describe("Edge cases", () => {
 
 		expect(match?.params).toEqual({ id: "test-123" });
 	});
+
+	it("should infer meta function types correctly - no params", () => {
+		const route = createRoute("/meta-no-params", () => ({
+			PageComponent: MockComponent,
+			meta: () => [{ name: "description", content: "Static meta" }],
+		}));
+
+		const router = createRouter({ route });
+		const match = router.getRoute("/meta-no-params");
+
+		expect(match?.meta).toBeDefined();
+		if (match?.meta) {
+			const metaTags = match.meta();
+			expect(metaTags).toEqual([
+				{ name: "description", content: "Static meta" },
+			]);
+		}
+	});
+
+	it("should infer meta function types correctly - custom params", () => {
+		const route = createRoute("/meta-custom", () => ({
+			PageComponent: MockComponent,
+			meta: (title: string, author: string) => [
+				{ name: "title", content: title },
+				{ name: "author", content: author },
+			],
+		}));
+
+		const router = createRouter({ route });
+		const match = router.getRoute("/meta-custom");
+
+		expect(match?.meta).toBeDefined();
+		if (match?.meta) {
+			const metaTags = match.meta("My Post", "John Doe");
+			expect(metaTags).toEqual([
+				{ name: "title", content: "My Post" },
+				{ name: "author", content: "John Doe" },
+			]);
+		}
+	});
+
+	it("should infer meta function types correctly - with loader data", () => {
+		interface UserData {
+			name: string;
+			email: string;
+		}
+
+		const route = createRoute("/meta-loader", () => ({
+			PageComponent: MockComponent,
+			loader: () => ({ name: "Jane", email: "jane@example.com" }),
+			meta: (data?: UserData) => [
+				{ name: "title", content: data?.name || "Unknown" },
+				{ property: "og:email", content: data?.email || "" },
+			],
+		}));
+
+		const router = createRouter({ route });
+		const match = router.getRoute("/meta-loader");
+
+		expect(match?.meta).toBeDefined();
+		if (match?.meta) {
+			const metaTags = match.meta({ name: "Jane", email: "jane@example.com" });
+			expect(metaTags).toEqual([
+				{ name: "title", content: "Jane" },
+				{ property: "og:email", content: "jane@example.com" },
+			]);
+		}
+	});
 });

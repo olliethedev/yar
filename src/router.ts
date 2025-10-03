@@ -12,14 +12,21 @@ import type {
 	RouterConfig,
 } from "./types";
 
-type HandlerReturn<ComponentProps, LoaderData, Extra = unknown> = {
+type HandlerReturn<
+	ComponentProps,
+	LoaderData,
+	Extra = unknown,
+	MetaFn extends (
+		...args: any[]
+	) => Array<React.JSX.IntrinsicElements["meta"] | undefined> = () => Array<
+		React.JSX.IntrinsicElements["meta"] | undefined
+	>,
+> = {
 	PageComponent?: ComponentType<ComponentProps>;
 	LoadingComponent?: ComponentType<ComponentProps>;
 	ErrorComponent?: ComponentType<ComponentProps>;
 	loader?: () => LoaderData | Promise<LoaderData>;
-	meta?: (
-		data?: LoaderData,
-	) => Array<React.JSX.IntrinsicElements["meta"] | undefined>;
+	meta?: MetaFn;
 	extra?: Extra;
 };
 
@@ -30,6 +37,8 @@ type HandlerReturn<ComponentProps, LoaderData, Extra = unknown> = {
  * @template Options - Route options including query parameter validation schema
  * @template LoaderData - The type of data returned by the optional loader function
  * @template ComponentProps - The props type for the React component
+ * @template Extra - The type of extra data returned by the handler
+ * @template MetaFn - The type of the meta function
  *
  * @param {Path} path - The route path pattern with optional dynamic segments
  * @param {Function} handler - Handler function that receives route context (params, query) and returns component, loader, and meta configuration
@@ -56,12 +65,17 @@ export function createRoute<
 	LoaderData,
 	ComponentProps,
 	Extra = unknown,
+	MetaFn extends (
+		...args: any[]
+	) => Array<React.JSX.IntrinsicElements["meta"] | undefined> = () => Array<
+		React.JSX.IntrinsicElements["meta"] | undefined
+	>,
 >(
 	path: Path,
 	handler: (context: {
 		params: InferParam<Path>;
 		query: InferQuery<Options> | undefined;
-	}) => HandlerReturn<ComponentProps, LoaderData, Extra>,
+	}) => HandlerReturn<ComponentProps, LoaderData, Extra, MetaFn>,
 	options?: Options,
 ) {
 	type Context = InputContext<Path, Options>;
