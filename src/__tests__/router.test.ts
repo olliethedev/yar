@@ -932,4 +932,65 @@ describe("Edge cases", () => {
 		expect(authRoutes).toHaveLength(1);
 		expect(authRoutes[0][0]).toBe("user");
 	});
+
+	it("should infer loader function types correctly - no params", async () => {
+		const route = createRoute("/loader-no-params", () => ({
+			PageComponent: MockComponent,
+			loader: () => ({ data: "static" }),
+		}));
+
+		const router = createRouter({ route });
+		const match = router.getRoute("/loader-no-params");
+
+		expect(match?.loader).toBeDefined();
+		if (match?.loader) {
+			const data = await match.loader();
+			expect(data).toEqual({ data: "static" });
+		}
+	});
+
+	it("should infer loader function types correctly - with params", async () => {
+		const route = createRoute("/loader-custom", () => ({
+			PageComponent: MockComponent,
+			loader: (userId: string, options?: { cache: boolean }) =>
+				Promise.resolve({
+					userId,
+					cached: options?.cache ?? false,
+				}),
+		}));
+
+		const router = createRouter({ route });
+		const match = router.getRoute("/loader-custom");
+
+		expect(match?.loader).toBeDefined();
+		if (match?.loader) {
+			const data = await match.loader("user-123", { cache: true });
+			expect(data.userId).toBe("user-123");
+			expect(data.cached).toBe(true);
+		}
+	});
+
+	it("should support loader with AbortSignal parameter", async () => {
+		const route = createRoute("/loader-signal", () => ({
+			PageComponent: MockComponent,
+			loader: async (signal?: AbortSignal) => {
+				// Simulate async operation that can be aborted
+				await new Promise((resolve) => setTimeout(resolve, 10));
+				if (signal?.aborted) {
+					throw new Error("Aborted");
+				}
+				return { data: "loaded" };
+			},
+		}));
+
+		const router = createRouter({ route });
+		const match = router.getRoute("/loader-signal");
+
+		expect(match?.loader).toBeDefined();
+		if (match?.loader) {
+			const controller = new AbortController();
+			const data = await match.loader(controller.signal);
+			expect(data).toEqual({ data: "loaded" });
+		}
+	});
 });
