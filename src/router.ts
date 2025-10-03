@@ -18,9 +18,11 @@ type HandlerReturn<
 	Extra = unknown,
 	MetaFn extends (
 		...args: any[]
-	) => Array<React.JSX.IntrinsicElements["meta"] | undefined> = () => Array<
-		React.JSX.IntrinsicElements["meta"] | undefined
-	>,
+	) =>
+		| Array<React.JSX.IntrinsicElements["meta"] | undefined>
+		| Promise<Array<React.JSX.IntrinsicElements["meta"] | undefined>> = () =>
+		| Array<React.JSX.IntrinsicElements["meta"] | undefined>
+		| Promise<Array<React.JSX.IntrinsicElements["meta"] | undefined>>,
 > = {
 	PageComponent?: ComponentType<ComponentProps>;
 	LoadingComponent?: ComponentType<ComponentProps>;
@@ -67,9 +69,11 @@ export function createRoute<
 	Extra = unknown,
 	MetaFn extends (
 		...args: any[]
-	) => Array<React.JSX.IntrinsicElements["meta"] | undefined> = () => Array<
-		React.JSX.IntrinsicElements["meta"] | undefined
-	>,
+	) =>
+		| Array<React.JSX.IntrinsicElements["meta"] | undefined>
+		| Promise<Array<React.JSX.IntrinsicElements["meta"] | undefined>> = () =>
+		| Array<React.JSX.IntrinsicElements["meta"] | undefined>
+		| Promise<Array<React.JSX.IntrinsicElements["meta"] | undefined>>,
 >(
 	path: Path,
 	handler: (context: {
