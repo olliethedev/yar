@@ -1,4 +1,4 @@
-# @olliethedev/yar (Yet Another Router)
+# @btst/yar (Yet Another Router)
 
 A simple, type-safe router for React that works with any framework.
 
@@ -12,9 +12,9 @@ A simple, type-safe router for React that works with any framework.
 ## Installation
 
 ```bash
-npm install @olliethedev/yar
+npm install @btst/yar
 # or
-pnpm add @olliethedev/yar
+pnpm add @btst/yar
 ```
 
 ## Quick Start
@@ -22,7 +22,7 @@ pnpm add @olliethedev/yar
 Here's one complete example showing all features:
 
 ```tsx
-import { createRoute, createRouter } from "@olliethedev/yar";
+import { createRoute, createRouter } from "@btst/yar";
 import { z } from "zod"; // or any Standard Schema library
 import HomePage from "./pages/home";
 import BlogPostPage from "./pages/blog-post";
