@@ -104,16 +104,13 @@ type ExtractRouteReturn<R> = R extends (...args: any[]) => infer Return
 	? Return
 	: never;
 
-// Helper type to get the union of all route return types
-type InferRouteReturnTypes<Routes extends Record<string, Route>> = {
-	[K in keyof Routes]: ExtractRouteReturn<Routes[K]>;
-}[keyof Routes];
-
-// The return type for getRoute, combining the handler return with params
-type GetRouteReturn<Routes extends Record<string, Route>> =
-	InferRouteReturnTypes<Routes> & {
+// The return type for getRoute, combining each handler return with params
+// We distribute the intersection over the union to preserve all properties
+type GetRouteReturn<Routes extends Record<string, Route>> = {
+	[K in keyof Routes]: ExtractRouteReturn<Routes[K]> & {
 		params: Record<string, string>;
 	};
+}[keyof Routes];
 
 /**
  * Creates a router instance from a collection of routes.
